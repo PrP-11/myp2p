@@ -12,6 +12,7 @@ navigator.getUserMedia(
 );
 
 const socket = io.connect("localhost:5000");
+const { RTCPeerConnection, RTCSessionDescription } = window;
 
 socket.on("update-user-list", ({ users }) => {
   updateUserList(users);
@@ -22,6 +23,30 @@ socket.on("remove-user", ({ socketId }) => {
   
   if (elToRemove) {
     elToRemove.remove();
+  }
+ });
+
+socket.on("call-made", async data => {
+  await peerConnection.setRemoteDescription(
+    new RTCSessionDescription(data.offer)
+  );
+  const answer = await peerConnection.createAnswer();
+  await peerConnection.setLocalDescription(new RTCSessionDescription(answer));
+  
+  socket.emit("make-answer", {
+    answer,
+    to: data.socket
+  });
+ });
+
+socket.on("answer-made", async data => {
+  await peerConnection.setRemoteDescription(
+    new RTCSessionDescription(data.answer)
+  );
+  
+  if (!isAlreadyCalling) {
+    callUser(data.socket);
+    isAlreadyCalling = true;
   }
  });
 
@@ -57,5 +82,15 @@ socket.on("remove-user", ({ socketId }) => {
     callUser(socketId);
   }); 
   return userContainerEl;
+ }
+
+ async function callUser(socketId) {
+  const offer = await peerConnection.createOffer();
+  await peerConnection.setLocalDescription(new RTCSessionDescription(offer));
+  
+  socket.emit("call-user", {
+    offer,
+    to: socketId
+  });
  }
  
