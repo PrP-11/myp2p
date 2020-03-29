@@ -1,3 +1,17 @@
+let isAlreadyCalling = false;
+let getCalled = false;
+
+const existingCalls = [];
+
+const { RTCPeerConnection, RTCSessionDescription } = window;
+const peerConnection = new RTCPeerConnection();
+peerConnection.ontrack = function({ streams: [stream] }) {
+  const remoteVideo = document.getElementById("remote-video");
+  if (remoteVideo) {
+    remoteVideo.srcObject = stream;
+  }
+};
+
 navigator.getUserMedia(
     { video: true, audio: true },
     stream => {
@@ -5,6 +19,8 @@ navigator.getUserMedia(
       if (localVideo) {
         localVideo.srcObject = stream;
       }
+
+      stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
     },
     error => {
       console.warn(error.message);
@@ -12,7 +28,6 @@ navigator.getUserMedia(
 );
 
 const socket = io.connect("localhost:5000");
-const { RTCPeerConnection, RTCSessionDescription } = window;
 
 socket.on("update-user-list", ({ users }) => {
   updateUserList(users);
@@ -94,3 +109,12 @@ socket.on("answer-made", async data => {
   });
  }
  
+ function unselectUsersFromList() {
+  const alreadySelectedUser = document.querySelectorAll(
+    ".active-user.active-user--selected"
+  );
+
+  alreadySelectedUser.forEach(el => {
+    el.setAttribute("class", "active-user");
+  });
+}
