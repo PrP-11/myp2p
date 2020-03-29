@@ -1,6 +1,7 @@
 import express, { Application } from "express";
 import socketIO, { Server as SocketIOServer } from "socket.io";
 import { createServer, Server as HTTPServer } from "http";
+var path = require('path');
  
 export class Server {
  private httpServer!: HTTPServer;
@@ -20,6 +21,9 @@ export class Server {
    this.app = express();
    this.httpServer = createServer(this.app);
    this.io = socketIO(this.httpServer);
+
+   this.configureApp();
+   this.handleSocketConnection();
  }
  
  private handleRoutes(): void {
@@ -39,4 +43,8 @@ export class Server {
      callback(this.DEFAULT_PORT)
    );
  }
+
+ private configureApp(): void {
+    this.app.use(express.static(path.join(__dirname, "../public")));
+  }
 }
