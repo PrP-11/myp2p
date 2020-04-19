@@ -1,31 +1,34 @@
-let isAlreadyCalling = false;
-let getCalled = false;
-
-const existingCalls = [];
-
 const { RTCPeerConnection, RTCSessionDescription } = window;
-const peerConnection = new RTCPeerConnection();
-peerConnection.ontrack = function({ streams: [stream] }) {
-  const remoteVideo = document.getElementById("remote-video");
-  if (remoteVideo) {
-    remoteVideo.srcObject = stream;
-  }
-};
+var connections = new Object();
+var isAlreadyCalling = new Object();
 
-navigator.getUserMedia(
-    { video: true, audio: true },
-    stream => {
-      const localVideo = document.getElementById("local-video");
-      if (localVideo) {
-        localVideo.srcObject = stream;
-      }
+function newConnection(socketId){
+  isAlreadyCalling[socketId] = false;
 
-      stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
-    },
-    error => {
-      console.warn(error.message);
+  const peerConnection = new RTCPeerConnection();
+  peerConnection.ontrack = function({ streams: [stream] }) {
+    const remoteVideo = document.getElementById("remote-video");
+    if (remoteVideo) {
+      remoteVideo.srcObject = stream;
     }
-);
+  };
+
+  navigator.getUserMedia(
+      { video: true, audio: true },
+      stream => {
+        const localVideo = document.getElementById("local-video");
+        if (localVideo) {
+          localVideo.srcObject = stream;
+        }
+
+        stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
+      },
+      error => {
+        console.warn(error.message);
+      }
+  );
+  connections[socketId] = peerConnection;
+}
 
 const socket = io.connect("https://prprtc.herokuapp.com/");
 
@@ -42,11 +45,11 @@ socket.on("remove-user", ({ socketId }) => {
  });
 
 socket.on("call-made", async data => {
-  await peerConnection.setRemoteDescription(
+  await connections[data.socket].setRemoteDescription(
     new RTCSessionDescription(data.offer)
   );
-  const answer = await peerConnection.createAnswer();
-  await peerConnection.setLocalDescription(new RTCSessionDescription(answer));
+  const answer = await connections[data.socket].createAnswer();
+  await connections[data.socket].setLocalDescription(new RTCSessionDescription(answer));
   
   socket.emit("make-answer", {
     answer,
@@ -55,14 +58,14 @@ socket.on("call-made", async data => {
  });
 
 socket.on("answer-made", async data => {
-  await peerConnection.setRemoteDescription(
-    new RTCSessionDescription(data.answer)
-  );
-  
-  if (!isAlreadyCalling) {
-    callUser(data.socket);
-    isAlreadyCalling = true;
-  }
+    await connections[data.socket].setRemoteDescription(
+      new RTCSessionDescription(data.answer)
+    );
+    
+    if (!isAlreadyCalling[data.socket]) {
+      callUser(data.socket);
+      isAlreadyCalling[data.socket] = true;
+    }
  });
 
  function updateUserList(socketIds) {
@@ -73,6 +76,7 @@ socket.on("answer-made", async data => {
     if (!alreadyExistingUser) {
       const userContainerEl = createUserItemContainer(socketId);
       activeUserContainer.appendChild(userContainerEl);
+      newConnection(socketId);
     }
   });
  }
@@ -95,13 +99,15 @@ socket.on("answer-made", async data => {
     const talkingWithInfo = document.getElementById("talking-with-info");
     talkingWithInfo.innerHTML = `Talking with: "Socket: ${socketId}"`;
     callUser(socketId);
+    listenTo = socketId;
+    console.log(listenTo);
   }); 
   return userContainerEl;
  }
 
  async function callUser(socketId) {
-  const offer = await peerConnection.createOffer();
-  await peerConnection.setLocalDescription(new RTCSessionDescription(offer));
+  const offer = await connections[socketId].createOffer();
+  await connections[socketId].setLocalDescription(new RTCSessionDescription(offer));
   
   socket.emit("call-user", {
     offer,
