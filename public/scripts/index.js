@@ -5,10 +5,11 @@ var isAlreadyCalling = new Object();
 function newConnection(socketId){
   isAlreadyCalling[socketId] = false;
   const peerConnection = new RTCPeerConnection();
+  const activeVideoContainer = document.getElementById("video-container");
+  const remoteVideo = createRemoteVideoContainer(socketId);
+  activeVideoContainer.appendChild(remoteVideo);
   peerConnection.ontrack = function({ streams: [stream] }) {
-    const activeVideoContainer = document.getElementById("video-container");
-    const remoteVideo = createRemoteVideoContainer(socketId);
-    activeVideoContainer.appendChild(remoteVideo);
+    
     if (remoteVideo) {
       remoteVideo.srcObject = stream;
     }
@@ -39,9 +40,12 @@ socket.on("update-user-list", ({ users }) => {
   
 socket.on("remove-user", ({ socketId }) => {
   const elToRemove = document.getElementById(socketId);
-  
+  const videoToRemove = document.getElementById("vid-"+socketId);
   if (elToRemove) {
     elToRemove.remove();
+  }
+  if (videoToRemove) {
+    videoToRemove.remove();
   }
  });
 
@@ -97,6 +101,8 @@ socket.on("answer-made", async data => {
   userContainerEl.addEventListener("click", () => {
     unselectUsersFromList();
     userContainerEl.setAttribute("class", "active-user active-user--selected");
+    hideAllVideo();
+    document.getElementById("vid-"+socketId).style.display = "block";
     const talkingWithInfo = document.getElementById("talking-with-info");
     talkingWithInfo.innerHTML = `Talking with: "Socket: ${socketId}"`;
     callUser(socketId);
@@ -111,7 +117,7 @@ socket.on("answer-made", async data => {
 
   RemoteVideoEl.setAttribute("autoplay", "");
   RemoteVideoEl.setAttribute("class", "remote-video");
-  RemoteVideoEl.setAttribute("id", socketId);
+  RemoteVideoEl.setAttribute("id", "vid-"+socketId);
   
   return RemoteVideoEl;
  }
@@ -133,5 +139,15 @@ socket.on("answer-made", async data => {
 
   alreadySelectedUser.forEach(el => {
     el.setAttribute("class", "active-user");
+  });
+}
+
+function hideAllVideo() {
+  const allRemoteContainers = document.querySelectorAll(
+    ".remote-video"
+  );
+
+  allRemoteContainers.forEach(el => {
+    el.style.display = "none";
   });
 }
