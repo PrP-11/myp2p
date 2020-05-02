@@ -4,10 +4,11 @@ var isAlreadyCalling = new Object();
 
 function newConnection(socketId){
   isAlreadyCalling[socketId] = false;
-
   const peerConnection = new RTCPeerConnection();
   peerConnection.ontrack = function({ streams: [stream] }) {
-    const remoteVideo = document.getElementById("remote-video");
+    const activeVideoContainer = document.getElementById("video-container");
+    const remoteVideo = createRemoteVideoContainer(socketId);
+    activeVideoContainer.appendChild(remoteVideo);
     if (remoteVideo) {
       remoteVideo.srcObject = stream;
     }
@@ -103,6 +104,16 @@ socket.on("answer-made", async data => {
     console.log(listenTo);
   }); 
   return userContainerEl;
+ }
+
+ function createRemoteVideoContainer(socketId) {
+  const RemoteVideoEl = document.createElement("video");
+
+  RemoteVideoEl.setAttribute("autoplay", "");
+  RemoteVideoEl.setAttribute("class", "remote-video");
+  RemoteVideoEl.setAttribute("id", socketId);
+  
+  return RemoteVideoEl;
  }
 
  async function callUser(socketId) {
