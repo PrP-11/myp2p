@@ -2,9 +2,17 @@ const { RTCPeerConnection, RTCSessionDescription } = window;
 var connections = new Object();
 var isAlreadyCalling = new Object();
 
+var iceServers = {
+  'iceServers': [
+    {
+      'urls': 'stun:stun.l.google.com:19302'
+    }
+  ]
+}
+
 function newConnection(socketId){
   isAlreadyCalling[socketId] = false;
-  const peerConnection = new RTCPeerConnection();
+  const peerConnection = new RTCPeerConnection(iceServers);
   const activeVideoContainer = document.getElementById("video-container");
   const remoteVideo = createRemoteVideoContainer(socketId);
   activeVideoContainer.appendChild(remoteVideo);
